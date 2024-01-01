@@ -17,6 +17,7 @@ colors = {
     "ORANGE": (23, 68, 63, 5),
 }
 
+
 class Action(Enum):
     DONOTHING = 1
     DESTROY = 2
@@ -46,8 +47,8 @@ class Ball:
         self.vel = Vector2(vel_x, vel_y)
         self.acc = Vector2(accel)
         self.ball_radius = ball_radius
-        self.fc = pygame.Color(200, 50, 50) # RED
-        self.bc = pygame.Color(30, 30, 30) # GREY
+        self.fc = pygame.Color(200, 50, 50)  # RED
+        self.bc = pygame.Color(30, 30, 30)  # GREY
         self.min_collisions = 5
         self.max_collisions = 10
         self.max_slow_collisions = 1000
@@ -55,9 +56,7 @@ class Ball:
         self.slow_collision_count = 0
         self.win_count = 0
         self.loss_count = 0
-        self.collision_velocity_threshold = (
-            3  # vel. threshold to consider a collision a collision
-        )
+        self.collision_velocity_threshold = 3  # vel. threshold to consider a collision a collision
         self.player_ball = player_ball  # a player ball cannot be destroyed
         self.hsva = (0, 0, 0, 0)
         self.kill_count = 0
@@ -89,12 +88,8 @@ class Ball:
                 speed_color = 359
             self.fc.hsva = (int(speed_color), 90, 100, 100)
 
-        pygame.draw.circle(
-            window, self.bc, (self.pos.x, self.pos.y), self.ball_radius
-        )  # border
-        pygame.draw.circle(
-            window, self.fc, (self.pos.x, self.pos.y), self.ball_radius - 2
-        )  # face
+        pygame.draw.circle(window, self.bc, (self.pos.x, self.pos.y), self.ball_radius)  # border
+        pygame.draw.circle(window, self.fc, (self.pos.x, self.pos.y), self.ball_radius - 2)  # face
 
     def check_ball_collision(self, ball):
         distance = (self.pos - ball.pos).magnitude_squared()
@@ -104,24 +99,10 @@ class Ball:
         vel_diff = self.vel - ball.vel
         pos_diff = self.pos - ball.pos
         try:
-            self.pos -= (
-                0.5
-                * (pos_diff.magnitude() - (self.ball_radius + ball.ball_radius))
-                * pos_diff.normalize()
-            )
-            ball.pos += (
-                0.5
-                * (pos_diff.magnitude() - (self.ball_radius + ball.ball_radius))
-                * pos_diff.normalize()
-            )
-            self.vel -= ((vel_diff).dot(pos_diff) / (pos_diff).magnitude_squared()) * (
-                pos_diff
-            )  # + self.acc
-            ball.vel -= (
-                (-vel_diff).dot(-pos_diff) / (-pos_diff).magnitude_squared()
-            ) * (
-                -pos_diff
-            )  # + ball.acc
+            self.pos -= 0.5 * (pos_diff.magnitude() - (self.ball_radius + ball.ball_radius)) * pos_diff.normalize()
+            ball.pos += 0.5 * (pos_diff.magnitude() - (self.ball_radius + ball.ball_radius)) * pos_diff.normalize()
+            self.vel -= ((vel_diff).dot(pos_diff) / (pos_diff).magnitude_squared()) * (pos_diff)  # + self.acc
+            ball.vel -= ((-vel_diff).dot(-pos_diff) / (-pos_diff).magnitude_squared()) * (-pos_diff)  # + ball.acc
         except:
             pass
 
@@ -173,20 +154,12 @@ class Ball:
                     logging.debug(
                         f"Ball {self} now has {self.collision_count} collisions and radius {self.ball_radius} Wins: {self.win_count} Losses: {self.loss_count}"
                     )
-                    if (
-                        self.collision_count >= self.min_collisions
-                        and self.collision_count < self.max_collisions
-                    ):
+                    if self.collision_count >= self.min_collisions and self.collision_count < self.max_collisions:
                         collide_pos += [tuple([int(x) for x in self.pos])]
                 else:
                     self.slow_collision_count += 1
-                    logging.debug(
-                        f"Ball {self} now has {self.slow_collision_count} SLOW collisions"
-                    )
-        if (
-            self.slow_collision_count >= self.max_slow_collisions
-            or self.collision_count >= self.max_collisions
-        ):
+                    logging.debug(f"Ball {self} now has {self.slow_collision_count} SLOW collisions")
+        if self.slow_collision_count >= self.max_slow_collisions or self.collision_count >= self.max_collisions:
             action = Action.DESTROY
         elif collide_pos and rand.choice(range(3)) == 0:
             collide_pos = collide_pos[0]
@@ -198,18 +171,14 @@ class Ball:
         return action, collide_pos
 
     def check_border_collision(self):
-        if (
-            self.pos.y >= self.win_height - self.ball_radius and self.vel.y > 0
-        ):  # check bottom border
+        if self.pos.y >= self.win_height - self.ball_radius and self.vel.y > 0:  # check bottom border
             self.vel.y = -self.vel.y - 0.5 * self.acc.y
             self.pos.y = self.win_height - self.ball_radius
         elif self.pos.y <= 0 + self.ball_radius and self.vel.y < 0:  # check top border
             self.vel.y = -self.vel.y - 0.5 * self.acc.y
             self.pos.y = self.ball_radius
 
-        if (
-            self.pos.x >= self.win_width - self.ball_radius and self.vel.x > 0
-        ):  # check right border
+        if self.pos.x >= self.win_width - self.ball_radius and self.vel.x > 0:  # check right border
             self.vel.x = -self.vel.x - 0.5 * self.acc.x
             self.pos.x = self.win_width - self.ball_radius
         elif self.pos.x <= 0 + self.ball_radius and self.vel.x < 0:  # check left border

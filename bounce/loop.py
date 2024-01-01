@@ -5,6 +5,7 @@ import logging
 
 from bounce import Ball, Action, colors
 
+
 def mainLoop(
     player_count=3,
     player_colors=[],
@@ -69,15 +70,11 @@ def mainLoop(
         tick += 1
         add_balls, del_balls = [], []
         for event in pygame.event.get():
-            if event.type == pygame.QUIT or (
-                event.type == pygame.KEYDOWN and event.key == pygame.K_q
-            ):
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_q):
                 pygame.quit()
                 logging.info("Exiting")
                 sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN and (
-                CREATE_BALLS or CREATE_BALLS_MANUALLY
-            ):
+            if event.type == pygame.MOUSEBUTTONDOWN and (CREATE_BALLS or CREATE_BALLS_MANUALLY):
                 add_balls += [pygame.mouse.get_pos()]
 
         # if tick - 100 > most_recent_event:
@@ -89,11 +86,7 @@ def mainLoop(
             CREATE_BALLS = False
             winnable = True
 
-        if (
-            not CREATE_BALLS
-            and len(balls) <= CREATE_BALLS_COOLDOWN
-            and cooldown_count < max_cooldowns
-        ):
+        if not CREATE_BALLS and len(balls) <= CREATE_BALLS_COOLDOWN and cooldown_count < max_cooldowns:
             logging.debug(f"Cooldown reached, re-enabling explosions")
             CREATE_BALLS = True
             cooldown_count += 1
@@ -105,30 +98,20 @@ def mainLoop(
                 logging.info(
                     f"Player {x}: {tick} ticks, {player_balls[x].win_count} wins, {player_balls[x].loss_count} losses, {player_balls[x].ball_radius} size, Kills: {player_balls[x].kill_count}"
                 )
-                if (
-                    not winner
-                    or player_balls[x].kill_count > player_balls[winner].kill_count
-                ):
+                if not winner or player_balls[x].kill_count > player_balls[winner].kill_count:
                     winner = x
             if winner not in round_tally:
                 round_tally[winner] = 0
             round_tally[winner] += 1
-            logging.info(
-                f"Leader: {player_balls[winner]} -- Total Round Won: {round_tally}"
-            )
+            logging.info(f"Leader: {player_balls[winner]} -- Total Round Won: {round_tally}")
             # kills = [ [str(balls[x]),balls[x].kill_count] for x in balls.keys() if balls[x].player_ball ]
-            kills = [
-                [str(player_balls[x]), player_balls[x].kill_count]
-                for x in player_balls.keys()
-            ]
+            kills = [[str(player_balls[x]), player_balls[x].kill_count] for x in player_balls.keys()]
             logging.info(f"Kills Total: {kills}")
             most_recent_event = tick
             CREATE_BALLS = True
             game_round += 1
             total_balls = 50 * game_round
-            logging.info(
-                f"Beginning of round {game_round}. Dropping {total_balls} balls"
-            )
+            logging.info(f"Beginning of round {game_round}. Dropping {total_balls} balls")
             balls_to_drop = total_balls
             winnable = False
             max_cooldowns = game_round
