@@ -5,8 +5,6 @@ from enum import Enum
 import uuid
 import logging
 
-DEBUG = False
-
 colors = {
     "PINK": (289, 38, 98, 77),
     # "TEAL": (169, 62, 97, 22),
@@ -18,16 +16,6 @@ colors = {
     "GREEN": (104, 79, 82, 94),
     "ORANGE": (23, 68, 63, 5),
 }
-
-selected_colors = []
-
-logging.basicConfig(
-    format="%(asctime)s | %(message)s", level=(logging.DEBUG if DEBUG else logging.INFO)
-)
-
-RED = pygame.Color(200, 50, 50)
-GREY = pygame.Color(30, 30, 30)
-
 
 class Action(Enum):
     DONOTHING = 1
@@ -58,8 +46,8 @@ class Ball:
         self.vel = Vector2(vel_x, vel_y)
         self.acc = Vector2(accel)
         self.ball_radius = ball_radius
-        self.fc = RED
-        self.bc = GREY
+        self.fc = pygame.Color(200, 50, 50) # RED
+        self.bc = pygame.Color(30, 30, 30) # GREY
         self.min_collisions = 5
         self.max_collisions = 10
         self.max_slow_collisions = 1000
