@@ -17,5 +17,7 @@ if __name__ == "__main__":
             player_count=player_count,
             player_colors=player_colors,
             tick_speed=100,
+            CREATE_BALLS_MANUALLY=False,
+            debug=False,
         )
     )

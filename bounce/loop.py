@@ -55,7 +55,7 @@ def mainLoop(
         else:
             color = rand.choice([x for x in colors.keys() if x not in selected_colors])
         new_ball = Ball(
-            *(800, 50),
+            *(width/2, height-200),
             win_height=height,
             win_width=width,
             vel_x=rand.uniform(-5, 5),
@@ -64,9 +64,12 @@ def mainLoop(
             color=color,
         )
         player_balls[new_ball.id] = new_ball
+        selected_colors += [color]
 
     logging.info(f"Beginning of round {game_round}. Dropping {total_balls} balls")
     while True:
+        #for x in player_balls.keys():
+        #    logging.debug(f"Vel: {player_balls[x].vel} Acc: {player_balls[x].acc}")
         tick += 1
         add_balls, del_balls = [], []
         for event in pygame.event.get():
@@ -77,6 +80,11 @@ def mainLoop(
             if event.type == pygame.MOUSEBUTTONDOWN and (CREATE_BALLS or CREATE_BALLS_MANUALLY):
                 add_balls += [pygame.mouse.get_pos()]
 
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                logging.debug("space bar pressed!")
+                for x in player_balls.keys():
+                    player_balls[x].boost = True
+
         # if tick - 100 > most_recent_event:
         #    logging.debug("no recent events, adding a ball")
         #    add_balls += [ (0,0) ]
@@ -86,7 +94,7 @@ def mainLoop(
             CREATE_BALLS = False
             winnable = True
 
-        if not CREATE_BALLS and len(balls) <= CREATE_BALLS_COOLDOWN and cooldown_count < max_cooldowns:
+        if not CREATE_BALLS and not CREATE_BALLS_MANUALLY and len(balls) <= CREATE_BALLS_COOLDOWN and cooldown_count < max_cooldowns:
             logging.debug(f"Cooldown reached, re-enabling explosions")
             CREATE_BALLS = True
             cooldown_count += 1
@@ -108,7 +116,7 @@ def mainLoop(
             kills = [[str(player_balls[x]), player_balls[x].kill_count] for x in player_balls.keys()]
             logging.info(f"Kills Total: {kills}")
             most_recent_event = tick
-            CREATE_BALLS = True
+            CREATE_BALLS = not CREATE_BALLS_MANUALLY
             game_round += 1
             total_balls = 50 * game_round
             logging.info(f"Beginning of round {game_round}. Dropping {total_balls} balls")
@@ -160,11 +168,12 @@ def mainLoop(
                 most_recent_event = tick
             del add_balls
 
-        if balls_to_drop > 0 and tick % int(50 / game_round) == 0:
+        if not CREATE_BALLS_MANUALLY and balls_to_drop > 0 and tick % int(50 / game_round) == 0:
             logging.debug(f"Balls to drop {balls_to_drop} so dropping a ball")
-            _pos = (0, 0)
-            if balls_to_drop % 2 == 0:
-                _pos = (1600, 0)
+            #_pos = (0, 0)
+            #if balls_to_drop % 2 == 0:
+            #    _pos = (1600, 0)
+            _pos = ( rand.choice(range(width)), 0 )
             new_ball = Ball(
                 *_pos,
                 win_height=height,

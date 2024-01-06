@@ -62,6 +62,7 @@ class Ball:
         self.kill_count = 0
         self.win_height = win_height
         self.win_width = win_width
+        self.boost = False
 
         if color:
             # h = rand.choice(range(0,360))
@@ -166,6 +167,9 @@ class Ball:
             action = Action.CREATE
         self.check_border_collision()
         self.vel += self.acc
+        if self.boost:
+            self.vel.y -= 10
+            self.boost = False
         self.pos += self.vel
         self.draw_ball(window)
         return action, collide_pos
@@ -173,6 +177,8 @@ class Ball:
     def check_border_collision(self):
         if self.pos.y >= self.win_height - self.ball_radius and self.vel.y > 0:  # check bottom border
             self.vel.y = -self.vel.y - 0.5 * self.acc.y
+            if self.player_ball:
+                self.vel.y += 0.55
             self.pos.y = self.win_height - self.ball_radius
         elif self.pos.y <= 0 + self.ball_radius and self.vel.y < 0:  # check top border
             self.vel.y = -self.vel.y - 0.5 * self.acc.y
