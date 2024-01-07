@@ -1,192 +1,208 @@
 import pygame
+import sys
 import random as rand
-from pygame.math import Vector2
-from enum import Enum
-import uuid
 import logging
 
-colors = {
-    "PINK": (289, 38, 98, 77),
-    # "TEAL": (169, 62, 97, 22),
-    "BLUE": (217, 83, 59, 22),
-    "BROWN": (4, 28, 38, 52),
-    "BLACK": (0, 0, 0, 0),
-    "RED": (356, 86, 58, 46),
-    "KHAKI": (90, 15, 53, 90),
-    "GREEN": (104, 79, 82, 94),
-    "ORANGE": (23, 68, 63, 5),
-}
+from bounce.utils import Action, colors
+from bounce.ball import Ball
 
 
-class Action(Enum):
-    DONOTHING = 1
-    DESTROY = 2
-    CREATE = 3
+def main(
+    player_count=3,
+    player_colors=[],
+    debug=False,
+    CREATE_BALLS_MANUALLY=False,
+    MAX_BALLS_IN_PLAY=300,
+    CREATE_BALLS_COOLDOWN=30,
+    BALLS_LEFT_TO_WIN=0,
+    tick_speed=100,
+):
+    selected_colors = []
 
+    logging.basicConfig(
+        format="%(asctime)s | %(message)s",
+        level=(logging.DEBUG if debug else logging.INFO),
+    )
 
-def avg(lst):
-    return sum(lst) / len(lst)
+    win_size = width, height = 1600, 1000
 
+    window = pygame.display.set_mode(win_size)
 
-class Ball:
-    def __init__(
-        self,
-        x,
-        y,
-        win_height,
-        win_width,
-        vel_x=1,
-        vel_y=0,
-        accel=(0, 0.3),
-        ball_radius=20,
-        player_ball=False,
-        color=None,
-    ):
-        self.id = str(uuid.uuid4())
-        self.pos = Vector2(x, y)
-        self.vel = Vector2(vel_x, vel_y)
-        self.acc = Vector2(accel)
-        self.ball_radius = ball_radius
-        self.fc = pygame.Color(200, 50, 50)  # RED
-        self.bc = pygame.Color(30, 30, 30)  # GREY
-        self.min_collisions = 5
-        self.max_collisions = 10
-        self.max_slow_collisions = 1000
-        self.collision_count = 0
-        self.slow_collision_count = 0
-        self.win_count = 0
-        self.loss_count = 0
-        self.collision_velocity_threshold = 3  # vel. threshold to consider a collision a collision
-        self.player_ball = player_ball  # a player ball cannot be destroyed
-        self.hsva = (0, 0, 0, 0)
-        self.kill_count = 0
-        self.win_height = win_height
-        self.win_width = win_width
-        self.boost = False
+    pygame.display.set_caption("bounce.v01")
+    clock = pygame.time.Clock()
 
-        if color:
-            # h = rand.choice(range(0,360))
-            # s = rand.choice(range(0,100))
-            # v = rand.choice(range(0,100))
-            # a = rand.choice(range(0,100))
-            # self.hsva = (h,s,v,a)
-            ##color = rand.choice([ x for x in colors.keys() if x not in selected_colors ])
-            ##self.hsva = colors[color]
-            self.id = color
-            self.hsva = colors[color]
-            logging.info(f"Creating ball with color {color}")
+    balls = {}
+    player_balls = {}
 
-    def __str__(self):
-        return str(self.id)
+    tick = 0
+    most_recent_event = 0
+    game_round = 1
+    total_balls = 50 * game_round
+    balls_to_drop = total_balls
+    winner = ""
+    round_tally = {}
+    winnable = False
+    cooldown_count = 0
+    max_cooldowns = game_round
 
-    def draw_ball(self, window):
-        if self.player_ball:
-            self.fc.hsva = self.hsva
+    ground_slope = -0.01
+
+    CREATE_BALLS = True
+
+    if CREATE_BALLS_MANUALLY:
+        CREATE_BALLS = False
+
+    for x in range(player_count):
+        if player_colors and len(player_colors) - 1 >= x:
+            color = player_colors[x]
         else:
-            speed_color = self.vel.magnitude()
-            speed_color *= 13
-            if speed_color >= 359:
-                speed_color = 359
-            self.fc.hsva = (int(speed_color), 90, 100, 100)
+            color = rand.choice([x for x in colors.keys() if x not in selected_colors])
+        new_ball = Ball(
+            *(width/2, height-400),
+            win_height=height,
+            win_width=width,
+            vel_x=rand.uniform(-5, 5),
+            ball_radius=rand.triangular(10, 20, 50),
+            player_ball=True,
+            color=color,
+        )
+        player_balls[new_ball.id] = new_ball
+        selected_colors += [color]
 
-        pygame.draw.circle(window, self.bc, (self.pos.x, self.pos.y), self.ball_radius)  # border
-        pygame.draw.circle(window, self.fc, (self.pos.x, self.pos.y), self.ball_radius - 2)  # face
+    logging.info(f"Beginning of round {game_round}. Dropping {total_balls} balls")
+    while True:
+        #for x in player_balls.keys():
+        #    logging.debug(f"Vel: {player_balls[x].vel} Acc: {player_balls[x].acc}")
+        tick += 1
+        add_balls, del_balls = [], []
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_q):
+                pygame.quit()
+                logging.info("Exiting")
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN and (CREATE_BALLS or CREATE_BALLS_MANUALLY):
+                add_balls += [pygame.mouse.get_pos()]
 
-    def check_ball_collision(self, ball):
-        distance = (self.pos - ball.pos).magnitude_squared()
-        return distance < (self.ball_radius + ball.ball_radius) ** 2
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN:
+                ground_slope -= -0.01
+                logging.debug(f"Slope is now {ground_slope}")
 
-    def calculate_ball_collision(self, ball):
-        vel_diff = self.vel - ball.vel
-        pos_diff = self.pos - ball.pos
-        try:
-            self.pos -= 0.5 * (pos_diff.magnitude() - (self.ball_radius + ball.ball_radius)) * pos_diff.normalize()
-            ball.pos += 0.5 * (pos_diff.magnitude() - (self.ball_radius + ball.ball_radius)) * pos_diff.normalize()
-            self.vel -= ((vel_diff).dot(pos_diff) / (pos_diff).magnitude_squared()) * (pos_diff)  # + self.acc
-            ball.vel -= ((-vel_diff).dot(-pos_diff) / (-pos_diff).magnitude_squared()) * (-pos_diff)  # + ball.acc
-        except:
-            pass
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
+                ground_slope += -0.01
+                logging.debug(f"Slope is now {ground_slope}")
 
-        # velocity lost from collisions
-        self.vel *= 1
-        ball.vel *= 1
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                logging.debug("space bar pressed!")
+                for x in player_balls.keys():
+                    player_balls[x].boost = True
 
-        self_won = True
-        if avg(ball.vel) * ball.ball_radius > avg(self.vel) * self.ball_radius:
-            self_won = False
+        # if tick - 100 > most_recent_event:
+        #    logging.debug("no recent events, adding a ball")
+        #    add_balls += [ (0,0) ]
 
-        return self_won
+        if len(balls) >= MAX_BALLS_IN_PLAY:
+            logging.debug(f"Creation Throttle reached: {len(balls)}")
+            CREATE_BALLS = False
+            winnable = True
 
-    def update(self, tick, window, xballs):
-        collide_pos = []
-        action = Action.DONOTHING
+        if not CREATE_BALLS and not CREATE_BALLS_MANUALLY and len(balls) <= CREATE_BALLS_COOLDOWN and cooldown_count < max_cooldowns:
+            logging.debug(f"Cooldown reached, re-enabling explosions")
+            CREATE_BALLS = True
+            cooldown_count += 1
 
-        # for k in list(balls.keys()) + list(player_balls.keys()):
-        for k in xballs.keys():
-            ball = xballs[k]
-            if not ball:
-                continue
-            if ball is self:
-                pass
-            elif self.check_ball_collision(ball):
-                # another ball has collided with our ball
-                self_won = self.calculate_ball_collision(ball)
-                velo = abs(avg(self.vel))
-                if velo >= self.collision_velocity_threshold:
-                    self.collision_count += 1
-                    if self_won:
-                        self.win_count += 1
-                        self.vel *= 1.01
-                        self.ball_radius += 5
-                        if self.ball_radius > 150:
-                            self.ball_radius = 150
-                    else:
-                        self.loss_count += 1
-                        ball.vel *= 1.01
-                        self.ball_radius -= 5
-                        if self.ball_radius < 5:
-                            self.ball_radius = 5
-                        if (
-                            self.slow_collision_count >= self.max_slow_collisions
-                            or self.collision_count >= self.max_collisions
-                        ):
-                            ball.kill_count += 1
+        if winnable and len(balls.keys()) <= BALLS_LEFT_TO_WIN:
+            logging.info(f"Round Over. Player stats:")
+            for x in player_balls:
+                # if balls[x].player_ball:
+                logging.info(
+                    f"Player {x}: {tick} ticks, {player_balls[x].win_count} wins, {player_balls[x].loss_count} losses, {player_balls[x].ball_radius} size, Kills: {player_balls[x].kill_count}"
+                )
+                if not winner or player_balls[x].kill_count > player_balls[winner].kill_count:
+                    winner = x
+            if winner not in round_tally:
+                round_tally[winner] = 0
+            round_tally[winner] += 1
+            logging.info(f"Leader: {player_balls[winner]} -- Total Round Won: {round_tally}")
+            # kills = [ [str(balls[x]),balls[x].kill_count] for x in balls.keys() if balls[x].player_ball ]
+            kills = [[str(player_balls[x]), player_balls[x].kill_count] for x in player_balls.keys()]
+            logging.info(f"Kills Total: {kills}")
+            most_recent_event = tick
+            CREATE_BALLS = not CREATE_BALLS_MANUALLY
+            game_round += 1
+            total_balls = 50 * game_round
+            logging.info(f"Beginning of round {game_round}. Dropping {total_balls} balls")
+            balls_to_drop = total_balls
+            winnable = False
+            max_cooldowns = game_round
+            cooldown_count = 0
+            for x in player_balls.keys():
+                player_balls[x].ball_radius = 20
+                player_balls[x].win_count = 0
+                player_balls[x].loss_count = 0
 
-                    logging.debug(
-                        f"Ball {self} now has {self.collision_count} collisions and radius {self.ball_radius} Wins: {self.win_count} Losses: {self.loss_count}"
-                    )
-                    if self.collision_count >= self.min_collisions and self.collision_count < self.max_collisions:
-                        collide_pos += [tuple([int(x) for x in self.pos])]
-                else:
-                    self.slow_collision_count += 1
-                    logging.debug(f"Ball {self} now has {self.slow_collision_count} SLOW collisions")
-        if self.slow_collision_count >= self.max_slow_collisions or self.collision_count >= self.max_collisions:
-            action = Action.DESTROY
-        elif collide_pos and rand.choice(range(3)) == 0:
-            collide_pos = collide_pos[0]
-            action = Action.CREATE
-        self.check_border_collision()
-        self.vel += self.acc
-        if self.boost:
-            self.vel.y -= 10
-            self.boost = False
-        self.pos += self.vel
-        self.draw_ball(window)
-        return action, collide_pos
+        window.fill(pygame.Color(150, 200, 255))  # light pastel blue
+        # draw the ground here
+        ground_depth = 100
+        
+        ground = [(0, height-ground_depth), (width, height-ground_depth-(ground_slope*width)), (width, height), (0, height)]
+        ground_color = (92, 64, 51)
+        
+        pygame.draw.polygon(window, ground_color, ground)
 
-    def check_border_collision(self):
-        if self.pos.y >= self.win_height - self.ball_radius and self.vel.y > 0:  # check bottom border
-            self.vel.y = -self.vel.y - 0.5 * self.acc.y
-            if self.player_ball:
-                self.vel.y += 0.55
-            self.pos.y = self.win_height - self.ball_radius
-        elif self.pos.y <= 0 + self.ball_radius and self.vel.y < 0:  # check top border
-            self.vel.y = -self.vel.y - 0.5 * self.acc.y
-            self.pos.y = self.ball_radius
+        if tick % (7 * tick_speed) == 0:
+            logging.debug(f"Total Balls in play: {len(balls.keys())}")
 
-        if self.pos.x >= self.win_width - self.ball_radius and self.vel.x > 0:  # check right border
-            self.vel.x = -self.vel.x - 0.5 * self.acc.x
-            self.pos.x = self.win_width - self.ball_radius
-        elif self.pos.x <= 0 + self.ball_radius and self.vel.x < 0:  # check left border
-            self.vel.x = -self.vel.x - 0.5 * self.acc.x
-            self.pos.x = self.ball_radius
+        xballs = balls.copy()
+        xballs.update(player_balls)
+
+        for k in balls.keys():
+            ball = balls[k]
+            action, collide_pos = ball.update(tick, window, xballs, ground)
+            if action == Action.CREATE:
+                add_balls += [collide_pos]
+            elif action == Action.DESTROY and not ball.player_ball:
+                del_balls += [k]
+
+        for k in player_balls.keys():
+            player_balls[k].update(tick, window, xballs, ground)
+
+        if del_balls:
+            for k in del_balls:
+                if not balls[k].player_ball:
+                    del balls[k]
+                most_recent_event = tick
+            del del_balls
+
+        if add_balls and CREATE_BALLS:
+            for pos in add_balls:
+                # print(f"Creating a new ball at {pos}")
+                new_ball = Ball(
+                    *pos,
+                    win_height=height,
+                    win_width=width,
+                    vel_x=rand.uniform(-5, 5),
+                    ball_radius=rand.triangular(10, 20, 50),
+                )
+                balls[new_ball.id] = new_ball
+                most_recent_event = tick
+            del add_balls
+
+        if not CREATE_BALLS_MANUALLY and balls_to_drop > 0 and tick % int(50 / game_round) == 0:
+            logging.debug(f"Balls to drop {balls_to_drop} so dropping a ball")
+            #_pos = (0, 0)
+            #if balls_to_drop % 2 == 0:
+            #    _pos = (1600, 0)
+            _pos = ( rand.choice(range(width)), 0 )
+            new_ball = Ball(
+                *_pos,
+                win_height=height,
+                win_width=width,
+                vel_x=rand.uniform(-5, 5),
+                ball_radius=rand.triangular(10, 20, 50),
+            )
+            balls[new_ball.id] = new_ball
+            balls_to_drop -= 1
+
+        pygame.display.update()
+
+        clock.tick(int(tick_speed))
