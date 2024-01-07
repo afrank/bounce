@@ -1,19 +1,19 @@
 import sys
 import logging
 
-from bounce.loop import mainLoop
+from bounce import main
 
 if __name__ == "__main__":
     player_colors = []
     if len(sys.argv) > 1:
         player_colors = sys.argv[1:]
 
-    player_count = 3
+    player_count = 1
     if player_colors:
         player_count = len(player_colors)
 
     sys.exit(
-        mainLoop(
+        main(
             player_count=player_count,
             player_colors=player_colors,
             tick_speed=100,
