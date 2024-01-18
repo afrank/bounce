@@ -4,7 +4,7 @@ import random as rand
 import logging
 
 from bounce.utils import Action, colors
-from bounce.ball import Ball
+from bounce.ball import Ball, RGBBall, PlayerBall
 
 
 def main(
@@ -57,7 +57,7 @@ def main(
             color = player_colors[x]
         else:
             color = rand.choice([x for x in colors.keys() if x not in selected_colors])
-        new_ball = Ball(
+        new_ball = PlayerBall(
             *(width/2, height-400),
             win_height=height,
             win_width=width,
@@ -80,8 +80,9 @@ def main(
                 pygame.quit()
                 logging.info("Exiting")
                 sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN and (CREATE_BALLS or CREATE_BALLS_MANUALLY):
-                add_balls += [pygame.mouse.get_pos()]
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and (CREATE_BALLS or CREATE_BALLS_MANUALLY):
+                logging.debug("Adding a ball!")
+                add_balls += [ (0,0) ]
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN:
                 ground_slope -= -0.01
@@ -100,10 +101,13 @@ def main(
         #    logging.debug("no recent events, adding a ball")
         #    add_balls += [ (0,0) ]
 
+        if len(balls) > 0:
+            winnable = True
+
         if len(balls) >= MAX_BALLS_IN_PLAY:
             logging.debug(f"Creation Throttle reached: {len(balls)}")
             CREATE_BALLS = False
-            winnable = True
+            #winnable = True
 
         if not CREATE_BALLS and not CREATE_BALLS_MANUALLY and len(balls) <= CREATE_BALLS_COOLDOWN and cooldown_count < max_cooldowns:
             logging.debug(f"Cooldown reached, re-enabling explosions")
@@ -173,7 +177,7 @@ def main(
                 most_recent_event = tick
             del del_balls
 
-        if add_balls and CREATE_BALLS:
+        if add_balls and (CREATE_BALLS or CREATE_BALLS_MANUALLY):
             for pos in add_balls:
                 # print(f"Creating a new ball at {pos}")
                 new_ball = Ball(
@@ -193,7 +197,9 @@ def main(
             #if balls_to_drop % 2 == 0:
             #    _pos = (1600, 0)
             _pos = ( rand.choice(range(width)), 0 )
-            new_ball = Ball(
+            choices = [ Ball ] + ( [ RGBBall ] * 49 )
+            func = rand.choice(choices)
+            new_ball = func(
                 *_pos,
                 win_height=height,
                 win_width=width,
